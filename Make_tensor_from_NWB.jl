@@ -5,6 +5,7 @@ using TensorDecompositions
 using Random
 using Combinatorics
 using LinearAlgebra
+using DelimitedFiles
 
 Random.seed!(42)
 
@@ -39,7 +40,7 @@ tensor = cat(t...,dims=3);
 T = permutedims(tensor, (3, 1, 2));
 T = Float64.(T)
 
-max_number_of_components = 10 #number of components
+max_number_of_components = 2 #number of components
 iterations = 10 #number of iterations per component
 all_F = Array{Any}(undef, iterations)
 err = Array{Any}(undef, max_number_of_components, iterations)
@@ -47,16 +48,29 @@ sim = Array{Any}(undef, max_number_of_components, length(collect(combinations(1:
 combs = collect(combinations(1:iterations, 2))
 # parameter optimization
 #r = 1
-for r in 1:max_number_of_components
+Threads.@threads for r in 1:max_number_of_components
     # randomized initialisation
     #initial_guess = ntuple(k -> randn(size(T, k), r), ndims(T)) 
-    # run tensor decomposition
-    all_F = [candecomp(T, r, ntuple(k -> randn(size(T, k), r), ndims(T)), compute_error=true, method=:ALS, maxiter=200) for ii = 1:iterations]
+    # run tensor decomposition, shut down verbose and progress bar
+    all_F = [candecomp(T, r, ntuple(k -> randn(size(T, k), r), ndims(T)), compute_error=true, method=:ALS, maxiter=200, verbose=false) for ii = 1:iterations]
     # collect errors
     err[r,:] = [collect(values(all_F[ii].props))[1] for ii = 1:iterations]
     sim[r,:] = [similarity_tca(all_F[combs[c][1]],all_F[combs[c][2]]) for c in 1:length(combs)]
 end
 
+# save optimization parameters
+Destfolder = "/Users/pielem/Desktop/ANALYSIS/mPFC_Passive_Neuropixels/TCA/"
+csv_err = Destfolder*"model_optimization/PL026_20190430-probe0_err.csv"
+csv_sim = Destfolder*"model_optimization/PL026_20190430-probe0_sim.csv"
+writedlm(csv_err, err)
+writedlm(csv_sim, sim)
+
+println("Optimization done")
+
+# Run TCA for optimized parameters
+csv_neurons = Destfolder*"model_optimization/PL026_20190430-probe0_err,csv"
+csv_temporal = Destfolder*"model_optimization/PL026_20190430-probe0_err,csv"
+csv_trial = Destfolder*"model_optimization/PL026_20190430-probe0_err,csv"
 
 # plot
 #plot(layout = (r, 3))
